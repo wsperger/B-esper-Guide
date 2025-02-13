@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BesperBot Chat via iFrame</title>
+  <style>
+    /* Main wrapper for the chat component */
+    #besperChatWrapper {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      z-index: 2147483647;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    @media screen and (max-width: 768px) {
+      #besperChatWrapper {
+        bottom: 20px;
+        right: 20px;
+        padding: 5px;
+      }
+      #besperChatContainer {
+        width: calc(100vw - 40px) !important;
+        right: 0;
+      }
+    }
+    @media screen and (max-height: 700px) {
+      #besperChatContainer {
+        height: calc(100vh - 100px);
+        bottom: 80px;
+      }
+    }
+    /* Chat bubble (button) styles */
+    #besperChatBubble {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 100px;
+      height: 100px;
+      background-color: #022D54;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      color: #FFFFFF;
+      font-family: sans-serif;
+      font-weight: bold;
+      font-size: 15px;
+      transition: all 0.3s ease;
+    }
+    #besperChatBubble:hover {
+      background-color: #5897DE;
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    }
+    /* Chat container styles */
+    #besperChatContainer {
+      position: absolute;
+      bottom: 90px;
+      right: 0;
+      width: 500px;
+      height: 600px;
+      background-color: #FFFFFF;
+      border-radius: 24px;
+      overflow: hidden;
+      display: none;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+    }
+    /* When open, animate in */
+    #besperChatContainer.open {
+      display: block;
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    /* Header bar styles */
+    #besperChatHeader {
+      background-color: #022D54;
+      color: #FFFFFF;
+      padding: 16px 24px;
+      font-family: sans-serif;
+      font-weight: bold;
+      font-size: 18px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    /* Refresh (restart) button styles */
+    #besperRefreshButton {
+      position: absolute;
+      top: 16px;
+      right: 24px;
+      width: 32px;
+      height: 32px;
+      background: transparent;
+      border: none;
+      color: #FFFFFF;
+      font-size: 20px;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: color 0.2s ease;
+    }
+    #besperRefreshButton:hover {
+      color: #5897DE;
+    }
+    /* iFrame styles */
+    #besperIframe {
+      width: 100%;
+      height: calc(100% - 56px); /* Adjust for header height */
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="besperChatWrapper">
+    <div id="besperChatBubble" title="Toggle Chat">BesperBot</div>
+    <div id="besperChatContainer">
+      <div id="besperChatHeader">
+        BesperBot
+        <!-- Refresh button to reload the iframe -->
+        <button id="besperRefreshButton" title="Restart Conversation">&#x21bb;</button>
+      </div>
+      <!-- iFrame hosting the chat page; replace the src with your actual URL -->
+      <iframe id="besperIframe" src="YOUR_IFRAME_URL_HERE"></iframe>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      console.log("Starting BesperBot iFrame Chat initialization script...");
+      document.addEventListener('DOMContentLoaded', () => {
+        const bubble = document.getElementById('besperChatBubble');
+        const container = document.getElementById('besperChatContainer');
+        const refreshButton = document.getElementById('besperRefreshButton');
+        
+        bubble.addEventListener('click', event => {
+          event.stopPropagation();
+          container.classList.toggle('open');
+        });
+        
+        refreshButton.addEventListener('click', event => {
+          event.stopPropagation();
+          event.preventDefault();
+          console.log("Refresh button clicked. Reloading iframe...");
+          reloadIframe();
+        });
+        
+        // Close the chat container if user clicks outside the chat wrapper.
+        document.addEventListener('click', event => {
+          if (!event.target.closest('#besperChatWrapper')) {
+            container.classList.remove('open');
+          }
+        });
+      });
+      
+      function reloadIframe() {
+        const iframe = document.getElementById('besperIframe');
+        // Simply reassign the src attribute to force a reload.
+        iframe.src = iframe.src;
+      }
+    })();
+  </script>
+</body>
+</html>

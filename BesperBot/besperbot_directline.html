@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BesperBot Chat</title>
+  <style>
+    /* Main wrapper for the chat component */
+    #besperChatWrapper {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      z-index: 2147483647;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    @media screen and (max-width: 768px) {
+      #besperChatWrapper {
+        bottom: 20px;
+        right: 20px;
+        padding: 5px;
+      }
+      #besperChatContainer {
+        width: calc(100vw - 40px) !important;
+        right: 0;
+      }
+    }
+    @media screen and (max-height: 700px) {
+      #besperChatContainer {
+        height: calc(100vh - 100px);
+        bottom: 80px;
+      }
+    }
+    /* Chat bubble (button) styles */
+    #besperChatBubble {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 100px;
+      height: 100px;
+      background-color: #022D54;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      color: #FFFFFF;
+      font-family: sans-serif;
+      font-weight: bold;
+      font-size: 15px;
+      transition: all 0.3s ease;
+    }
+    #besperChatBubble:hover {
+      background-color: #5897DE;
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    }
+    /* Chat container styles */
+    #besperChatContainer {
+      position: absolute;
+      bottom: 90px;
+      right: 0;
+      width: 500px;
+      height: 600px;
+      background-color: #FFFFFF;
+      border-radius: 24px;
+      overflow: hidden;
+      display: none;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+    }
+    /* When open, animate in */
+    #besperChatContainer.open {
+      display: block;
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    /* Header bar styles */
+    #besperChatHeader {
+      background-color: #022D54;
+      color: #FFFFFF;
+      padding: 16px 24px;
+      font-family: sans-serif;
+      font-weight: bold;
+      font-size: 18px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    /* Download and Refresh Buttons */
+    #besperDownloadButton,
+    #besperRefreshButton {
+      position: absolute;
+      top: 16px;
+      width: 32px;
+      height: 32px;
+      background: transparent;
+      border: none;
+      color: #FFFFFF;
+      font-size: 20px;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: color 0.2s ease;
+    }
+    #besperDownloadButton:hover,
+    #besperRefreshButton:hover {
+      color: #5897DE;
+    }
+    #besperRefreshButton {
+      right: 24px;
+    }
+    #besperDownloadButton {
+      right: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    /* Webchat container styles */
+    #besperWebchat {
+      width: 100%;
+      height: calc(100% - 56px); /* Adjust for the header height */
+    }
+    /* Custom scrollbar for the Webchat area */
+    #besperWebchat::-webkit-scrollbar {
+      width: 8px;
+    }
+    #besperWebchat::-webkit-scrollbar-track {
+      background: linear-gradient(180deg, #f1f1f1, #ebebeb);
+      border-radius: 4px;
+    }
+    #besperWebchat::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, #888, #444);
+      border-radius: 4px;
+      border: 2px solid #f1f1f1;
+    }
+    #besperWebchat::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, #5897DE, #022D54);
+    }
+  </style>
+</head>
+<body>
+  <div id="besperChatWrapper">
+    <div id="besperChatBubble" title="Toggle Chat">BesperBot</div>
+    <div id="besperChatContainer">
+      <div id="besperChatHeader">
+        BesperBot
+        <!-- Download button -->
+        <button id="besperDownloadButton" title="Download Conversation">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round"
+               stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </button>
+        <!-- Refresh button -->
+        <button id="besperRefreshButton" title="Restart Conversation">&#x21bb;</button>
+      </div>
+      <div id="besperWebchat"></div>
+    </div>
+  </div>
+
+  <!-- Load Web Chat and BesperJS scripts -->
+  <script src="https://cdn.botframework.com/botframework-webchat/latest/webchat.js"></script>
+  <script src="https://unpkg.com/besperjs@1.0.1/src/index.js"></script>
+
+  <script>
+    (function() {
+      console.log("Starting BesperBot Chat initialization script...");
+      // Use a placeholder bot ID
+      const botId = 'YOUR_BOT_ID_HERE';
+      let webChatInitialized = false;
+      let currentDirectLine = null;
+      // Transcript array to record conversation messages.
+      let conversationTranscript = [];
+
+      // Helper function to add an entry to the transcript without duplicating consecutive messages.
+      function addToTranscript(entry) {
+        const lastEntry = conversationTranscript[conversationTranscript.length - 1];
+        if (lastEntry && lastEntry.from === entry.from && lastEntry.text === entry.text) {
+          return;
+        }
+        conversationTranscript.push(entry);
+      }
+
+      // Compute the user's locale from browser settings.
+      const userLocale = (navigator.languages && navigator.languages.length)
+        ? navigator.languages[0]
+        : (navigator.language || 'en-US');
+      console.log("Detected locale:", userLocale);
+
+      // Apply the locale to <html lang="">
+      document.documentElement.lang = userLocale;
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const bubble = document.getElementById('besperChatBubble');
+        const container = document.getElementById('besperChatContainer');
+        const refreshButton = document.getElementById('besperRefreshButton');
+        const downloadButton = document.getElementById('besperDownloadButton');
+
+        bubble.addEventListener('click', event => {
+          event.stopPropagation();
+          container.classList.toggle('open');
+          // If container is open and the chat isn't initialized yet, initialize it now.
+          if (container.classList.contains('open') && !webChatInitialized) {
+            initializeWebChat();
+          }
+        });
+
+        refreshButton.addEventListener('click', event => {
+          event.stopPropagation();
+          event.preventDefault();
+          console.log("Restart button clicked. Restarting conversation...");
+          restartConversation();
+        });
+
+        downloadButton.addEventListener('click', event => {
+          event.stopPropagation();
+          event.preventDefault();
+          console.log("Download button clicked. Downloading conversation transcript...");
+          downloadTranscript();
+        });
+
+        // If user clicks outside the chat wrapper, close the chat container
+        document.addEventListener('click', event => {
+          if (!event.target.closest('#besperChatWrapper')) {
+            container.classList.remove('open');
+          }
+        });
+      });
+
+      /**
+       * Initializes Web Chat with a new DirectLine token from BesperBot.getSessionToken.
+       */
+      async function initializeWebChat() {
+        try {
+          console.log("Requesting Direct Line token using BesperBot.getSessionToken...");
+          const token = await BesperBot.getSessionToken(botId);
+          console.log("Received Direct Line token:", token);
+
+          // Pass user locale in conversationStartProperties to get a conversationUpdate activity automatically.
+          const directLine = window.WebChat.createDirectLine({
+            token: token,
+            conversationStartProperties: {
+              locale: userLocale
+            }
+          });
+          currentDirectLine = directLine;
+          console.log("Direct Line instance created with conversationStartProperties:", { locale: userLocale });
+
+          // Create a custom style set for the chat bubbles, background, etc.
+          const styleSet = window.WebChat.createStyleSet({
+            backgroundColor: '#FFFFFF',
+            bubbleBackground: '#F2F2F2',
+            bubbleBorderColor: 'transparent',
+            bubbleBorderRadius: 12,
+            bubbleBorderStyle: 'solid',
+            bubbleBorderWidth: 0,
+            bubbleTextColor: '#000000',
+            bubbleFromUserBackground: '#5897DE',
+            bubbleFromUserBorderColor: 'transparent',
+            bubbleFromUserBorderRadius: 12,
+            bubbleFromUserBorderStyle: 'solid',
+            bubbleFromUserBorderWidth: 0,
+            bubbleFromUserTextColor: '#FFFFFF',
+            sendBoxBackground: '#FFFFFF',
+            sendBoxButtonColor: '#022D54',
+            sendBoxButtonHoverColor: '#5897DE',
+            sendBoxHeight: 50,
+            sendBoxTextColor: '#000000',
+            suggestedActionBackgroundColor: '#022D54',
+            suggestedActionBorderColor: '#022D54',
+            suggestedActionBorderRadius: 20,
+            suggestedActionTextColor: '#FFFFFF',
+            timestampColor: '#707070'
+          });
+          // Override text content styles
+          styleSet.textContent = {
+            ...styleSet.textContent,
+            fontFamily: 'inherit',
+            color: 'inherit'
+          };
+          console.log("Custom styleSet created.");
+
+          // Create a store that injects locale into outgoing messages and captures them for the transcript.
+          const store = window.WebChat.createStore(
+            {},
+            ({ dispatch }) => next => action => {
+              if (action.payload && action.payload.activity) {
+                if (action.type === 'DIRECT_LINE/POST_ACTIVITY') {
+                  console.log("Middleware intercepted POST_ACTIVITY. Injecting locale:", userLocale);
+                  action.payload.activity.locale = userLocale;
+                  if (action.payload.activity.type === 'message') {
+                    addToTranscript({
+                      from: (action.payload.activity.from && action.payload.activity.from.role) || 'user',
+                      text: action.payload.activity.text || '',
+                      timestamp: new Date().toLocaleString(),
+                      type: action.payload.activity.type
+                    });
+                  }
+                } else if (action.type === 'DIRECT_LINE/INCOMING_ACTIVITY') {
+                  if (action.payload.activity.type === 'message') {
+                    addToTranscript({
+                      from: (action.payload.activity.from && action.payload.activity.from.role) || 'bot',
+                      text: action.payload.activity.text || '',
+                      timestamp: new Date().toLocaleString(),
+                      type: action.payload.activity.type
+                    });
+                  }
+                }
+              }
+              return next(action);
+            }
+          );
+          console.log("Store with middleware created.");
+
+          console.log("Rendering Web Chat...");
+          window.WebChat.renderWebChat({
+            directLine,
+            locale: userLocale,
+            store,
+            styleSet,
+            styleOptions: {
+              attachmentsEnabled: false,
+              paddingOptions: {
+                root: '0',
+                chat: '6px',
+                bubble: '4px',
+                sendBox: '4px'
+              },
+              hideUploadButton: true
+            },
+            activityMiddleware: () => next => card => next(card),
+            toolbar: {
+              actions: []
+            }
+          }, document.getElementById('besperWebchat'));
+          console.log("Web Chat rendered successfully.");
+
+          // Add extra styling for transcript content
+          const extraStyle = document.createElement('style');
+          extraStyle.innerHTML = `
+            /* Isolate text styles for headings and paragraphs in the transcript */
+            #besperWebchat .webchat__basic-transcript h1,
+            #besperWebchat .webchat__basic-transcript h2,
+            #besperWebchat .webchat__basic-transcript h3,
+            #besperWebchat .webchat__basic-transcript h4,
+            #besperWebchat .webchat__basic-transcript h5,
+            #besperWebchat .webchat__basic-transcript h6,
+            #besperWebchat .webchat__basic-transcript p {
+              color: inherit !important;
+              font-family: inherit !important;
+              font-size: 1em !important;
+              margin: inherit !important;
+              padding: 6px !important;
+            }
+            #besperWebchat .ac-pushButton,
+            #besperWebchat .ac-actionSet button,
+            #besperWebchat .webchat__basic-transcript button {
+              font-family: inherit !important;
+              font-size: 0.9em !important;
+              padding: 4px 8px !important;
+              margin: 2px !important;
+              background-color: #022D54 !important;
+              border: 1px solid #022D54 !important;
+              color: #FFFFFF !important;
+              border-radius: 4px !important;
+            }
+            #besperWebchat .ac-adaptiveCard {
+              padding: 6px !important;
+              margin: 4px !important;
+            }
+            #besperWebchat .webchat__basic-transcript {
+              padding: 8px !important;
+            }
+            #besperWebchat .webchat__basic-transcript .webchat__bubble {
+              padding: 8px 12px !important;
+            }
+            #besperWebchat .webchat__basic-transcript .webchat__bubble--from-user {
+              padding: 8px 12px !important;
+            }
+            #besperWebchat .webchat__basic-transcript .webchat__bubble-content {
+              padding: 0 !important;
+            }
+          `;
+          document.head.appendChild(extraStyle);
+
+          webChatInitialized = true;
+          console.log("Web Chat initialization complete.");
+        } catch (error) {
+          console.error("Error initializing Web Chat:", error);
+        }
+      }
+  
+      /**
+       * Restarts the conversation by ending the current DirectLine session,
+       * unmounting the existing Web Chat component, and reinitializing.
+       */
+      async function restartConversation() {
+        try {
+          console.log("Restarting conversation...");
+          const container = document.getElementById('besperChatContainer');
+
+          if (currentDirectLine && typeof currentDirectLine.end === 'function') {
+            currentDirectLine.end();
+            console.log("Previous DirectLine conversation ended.");
+          }
+          currentDirectLine = null;
+          if (window.ReactDOM && typeof window.ReactDOM.unmountComponentAtNode === 'function') {
+            window.ReactDOM.unmountComponentAtNode(document.getElementById('besperWebchat'));
+          }
+          conversationTranscript = [];
+          webChatInitialized = false;
+          await initializeWebChat();
+          container.classList.add('open');
+          console.log("Conversation restarted successfully.");
+        } catch (error) {
+          console.error("Error restarting conversation:", error);
+        }
+      }
+  
+      /**
+       * Downloads the captured conversation transcript as a .txt file.
+       */
+      function downloadTranscript() {
+        if (conversationTranscript.length < 2) {
+          alert("No conversation data to download.");
+          return;
+        }
+        // Omit the first message (if always empty)
+        const transcriptWithoutFirst = conversationTranscript.slice(1);
+        const header = `Download Date/Time: ${new Date().toLocaleString()}\nThis transcript comes from Besper UG. More information can be found on b-esper.com\n\n`;
+        const transcriptText = transcriptWithoutFirst.map(msg => {
+          return `[${msg.timestamp}] ${msg.from.toUpperCase()}: ${msg.text}`;
+        }).join('\n');
+        const fullTranscriptText = header + transcriptText;
+  
+        const blob = new Blob([fullTranscriptText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+  
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'B-esper Conversation Download.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        console.log("Transcript downloaded.");
+      }
+    })();
+  </script>
+</body>
+</html>
